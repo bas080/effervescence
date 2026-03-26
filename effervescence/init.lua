@@ -1,3 +1,5 @@
+local wind = dofile(core.get_modpath('breasy')..'/init.lua')
+
 effervescence = {
   -- Settings loaded from settingtypes.txt
   settings = {
@@ -126,7 +128,10 @@ if effervescence.settings.environmental.enabled then
             local hash = core.hash_node_position(emitter)
             if not already_emitted[hash] then
               local particles = core.get_meta(emitter):get("effervescence.particles")
-              if particles and math.random(1,100) <= effervescence.settings.environmental.chance then
+              local w = wind.get_wind(pos)
+
+              -- Two times more likely when wind length is 1. Less likely when the wind is soft.
+              if particles and math.random(1,100) <= (effervescence.settings.environmental.chance * (2 * vector.length(w))) then
                 particles = particles:split(",")
                 local r = math.random(1,#particles)
                 local len = #particles
@@ -134,7 +139,9 @@ if effervescence.settings.environmental.enabled then
                   local particle = effervescence.environmental_particles[particles[i % len + 1]]
                   if particle and particle:check(emitter) then
                     local pdef = particle:emit(emitter)
-                    pdef.playername = pname,
+                    pdef.playername = pname
+                    pdef.minacc = w:steer(pdef.minacc)
+                    pdef.maxacc = w:steer(pdef.maxacc)
                     core.add_particlespawner(pdef)
                     already_emitted[hash] = true
                     break
@@ -180,7 +187,12 @@ if effervescence.settings.player.enabled then
             ptime[pname] = effervescence.settings.player.interval
             for name,particle in pairs(effervescence.player_particles) do
               if particle:check(player) then
-                core.add_particlespawner(particle:emit(player))
+                local pdef = particle:emit(player)
+                local w = wind.get_wind(pdef.pos.min)
+                pdef.minacc = w:steer(pdef.minacc)
+                pdef.maxacc = w:steer(pdef.maxacc)
+                pdef.texture.alpha = 0.6
+                core.add_particlespawner(pdef)
               end
             end
           end
